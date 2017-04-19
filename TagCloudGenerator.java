@@ -1,6 +1,13 @@
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
-import components.map.Map;
 import components.map.Map1L;
 import components.queue.Queue;
 import components.queue.Queue1L;
@@ -10,12 +17,11 @@ import components.simplewriter.SimpleWriter;
 import components.simplewriter.SimpleWriter1L;
 import components.sortingmachine.SortingMachine;
 import components.sortingmachine.SortingMachine1L;
-import components.utilities.Reporter;
 
 /**
  * Program to take a text file and output an HTML file
  *
- * @author Antonio Ortiz
+ * @author Antonio Ortiz and Jacob Grove
  */
 public final class TagCloudGenerator {
 
@@ -83,6 +89,7 @@ public final class TagCloudGenerator {
         assert position < text.length() : "Violation of: position < |text|";
 
         // TODO - fill in body
+
         int endIndex = text.length();
         boolean isSep = SEPARATORS.indexOf(text.charAt(position)) == -1;
         int i = position + 1;
@@ -102,22 +109,28 @@ public final class TagCloudGenerator {
      * @param fileName
      * @return Queue<String> of words
      */
-    private static Queue<String> getWordsFromFile(String fileName) {
+    private static Queue<String> getWordsFromFile(String fileName,
+            BufferedReader inFromFile) {
         Queue<String> wordList = new Queue1L<String>();
-        SimpleReader inFromFile = new SimpleReader1L(fileName);
-        while (!inFromFile.atEOS()) {
-            String currentLine = inFromFile.nextLine();
-            currentLine = currentLine.toLowerCase(); //ensures they are all same case
-            int pos = 0;
-            while (pos < currentLine.length()) {
-                String tempString = nextWordOrSeparator(currentLine, pos);
-                pos += tempString.length();
-                if (SEPARATORS.indexOf(tempString.charAt(0)) == -1) {
-                    wordList.enqueue(tempString);
+
+        try {
+            String currentLine = inFromFile.readLine();
+            while (currentLine != null) {
+                currentLine = currentLine.toLowerCase(); //ensures they are all same case
+                int pos = 0;
+                while (pos < currentLine.length()) {
+                    String tempString = nextWordOrSeparator(currentLine, pos);
+                    pos += tempString.length();
+                    if (SEPARATORS.indexOf(tempString.charAt(0)) == -1) {
+                        wordList.enqueue(tempString);
+                    }
+                    currentLine = inFromFile.readLine();
+                    pos = 0;
                 }
             }
-            pos = 0;
 
+        } catch (IOException e) {
+            System.err.println("Error reading from file");
         }
         return wordList;
     }
@@ -135,16 +148,18 @@ public final class TagCloudGenerator {
      */
     private static Map<String, Integer> getMapWithCount(
             Queue<String> wordList) {
-        Map<String, Integer> mapWithCount = new Map1L<>();
+        Map<String, Integer> mapWithCount = new HashMap<String, Integer>();
         String word;
         int queueLength = wordList.length();
 
         int value = 1;
         while (queueLength > 0) {
             word = wordList.dequeue();
-            if (mapWithCount.hasKey(word)) {
-                int key = mapWithCount.value(word);
-                int newKey = key + 1; // if word is already in map, increase occurrence by 1
+            if (mapWithCount.containsKey(word)) {
+                int key = mapWithCount.get(word);
+                Map.Entry<String, Integer> tempPair = mapWithCount.
+
+                        key += 1; // if word is already in map, increase occurrence by 1
                 mapWithCount.replaceValue(word, newKey);
             } else {
                 mapWithCount.add(word, value); // adds words and count of 1
@@ -195,21 +210,21 @@ public final class TagCloudGenerator {
      *
      */
     private static class alphaSort // alphabetize for our sorting machine
-            implements Comparator<Map.Pair<String, Integer>> {
+            implements Comparator<java.util.Map.Entry<String, Integer>> {
         @Override
-        public int compare(Map.Pair<String, Integer> one,
-                Map.Pair<String, Integer> two) {
-            return one.key().compareToIgnoreCase(two.key());
+        public int compare(java.util.Map.Entry<String, Integer> one,
+                java.util.Map.Entry<String, Integer> two) {
+            return one.getKey().compareToIgnoreCase(two.getKey());
 
         }
     }
 
     private static class numberSort //number for our sorting machine
-            implements Comparator<Map.Pair<String, Integer>> {
+            implements Comparator<java.util.Map.Entry<String, Integer>> {
         @Override
-        public int compare(Map.Pair<String, Integer> one,
-                Map.Pair<String, Integer> two) {
-            return two.value().compareTo(one.value());
+        public int compare(java.util.Map.Entry<String, Integer> one,
+                java.util.Map.Entry<String, Integer> two) {
+            return two.getValue().compareTo(one.getValue());
 
         }
     }
@@ -225,15 +240,12 @@ public final class TagCloudGenerator {
      * @return queueOfWordByOccurrences
      */
     private static Queue<String> orderMapByOccurrences(
-            Map<String, Integer> mapWithAllWords, Comparator numberSort,
+            HashMap<String, Integer> mapWithAllWords, Comparator numberSort,
             int numOfWordsWanted) {
 
         Queue<String> queueOfWordByOccurrences = new Queue1L<String>();
-        Map<String, Integer> tempMap = new Map1L<String, Integer>();
-        Reporter.assertElseFatalError(
-                numOfWordsWanted <= mapWithAllWords.size(),
-                "Error: Tag cloud size exceeds number of words");
-        SortingMachine<Map.Pair<String, Integer>> sort = new SortingMachine1L<>(
+        Map<String, Integer> tempMap = new HashMap<String, Integer>();
+        SortingMachine<Map.Entry<String, Integer>> sort = new SortingMachine1L<>(
                 numberSort);
 
         while (mapWithAllWords.size() > 0) {
@@ -242,23 +254,25 @@ public final class TagCloudGenerator {
 
         sort.changeToExtractionMode();
 
-        Map.Pair<String, Integer> currentWordPairWithCount = sort.removeFirst();
-        Max_Value = currentWordPairWithCount.value();
+        Map.Entry<String, Integer> currentWordPairWithCount = sort
+                .removeFirst();
+        Max_Value = currentWordPairWithCount.getValue();
 
-        tempMap.add(currentWordPairWithCount.key(),
-                currentWordPairWithCount.value()); //adding it to tempMap
-        queueOfWordByOccurrences.enqueue(currentWordPairWithCount.key());
+        tempMap.p(currentWordPairWithCount.getKey(),
+                currentWordPairWithCount.getValue()); //adding it to tempMap
+        queueOfWordByOccurrences.enqueue(currentWordPairWithCount.getKey());
 
         for (int currentWord = 0; currentWord < numOfWordsWanted; currentWord++) {
             currentWordPairWithCount = sort.removeFirst();
-            queueOfWordByOccurrences.enqueue(currentWordPairWithCount.key());
-            Min_Value = currentWordPairWithCount.value();
+            queueOfWordByOccurrences.enqueue(currentWordPairWithCount.getKey());
+            Min_Value = currentWordPairWithCount.getValue();
 
-            tempMap.add(currentWordPairWithCount.key(),
-                    currentWordPairWithCount.value()); //addingToTempMap
+            tempMap.put(currentWordPairWithCount.getKey(),
+                    currentWordPairWithCount.getValue()); //addingToTempMap
             System.out.println(currentWord);
         }
         mapWithAllWords.transferFrom(tempMap);
+        mapWithAllWords.
         return queueOfWordByOccurrences;
     }
 
@@ -382,6 +396,15 @@ public final class TagCloudGenerator {
         String outputFileName = getOutFileName(out);
         out.println("How many words would you like to see in your Tag Cloud?");
         //THESE LINES ARE FOR TESTING ONLY
+        BufferedReader input = null;
+        BufferedWriter output = null;
+        try {
+            input = new BufferedReader(new FileReader(inputFileName));
+            output = new BufferedWriter(new FileWriter(outputFileName));
+
+        } catch (IOException e) {
+            System.err.println("Unable to open the file.");
+        }
 
         String tempIn = in.nextLine();
         int numWords = Integer.parseInt(tempIn);
@@ -390,16 +413,19 @@ public final class TagCloudGenerator {
         // names and the number of words
 
         Queue<String> listOfAllWordsWithDuplicates = getWordsFromFile(
-                inputFileName);
+                inputFileName, input);
         // this is a list with every word and all of the duplicates as well
 
         Map<String, Integer> mapWithCount = getMapWithCount(
                 listOfAllWordsWithDuplicates);
+        if (numWords > mapWithCount.size()) {
+            numWords = mapWithCount.size();
+        }
 
         Queue<String> listOfAllWordsNoDuplicates = getListNoDuplicates(
                 mapWithCount);
 
-        Comparator<Map.Pair<String, Integer>> numberSort = new numberSort();
+        Comparator<Set<Map.Entry<String, Integer>>> numberSort = new numberSort();
         Comparator<Map.Pair<String, Integer>> alphaSort = new alphaSort();
 
         Queue<String> wordsInOrderByNum = orderMapByOccurrences(mapWithCount,
